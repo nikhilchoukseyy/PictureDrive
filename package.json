@@ -1,0 +1,18 @@
+{
+  "name": "picturedrive-telegram-bot",
+  "version": "1.0.0",
+  "description": "Telegram cloud storage bot backend using Node.js, Express, MongoDB, and Mongoose",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "check": "node --check src/index.js && node --check src/bot.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "mongoose": "^8.6.2",
+    "node-telegram-bot-api": "^0.66.0"
+  }
+}
