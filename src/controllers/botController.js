@@ -208,6 +208,23 @@ function registerBotHandlers(bot, storageChannelId) {
             await askForInput(bot, chatId, '📝 Registration\nPlease enter your username.');
             return;
           }
+        }
+
+        switch (action) {
+          case '/start':
+            clearState(telegramUserId);
+            await sendWithMenu(bot, chatId, isLoggedIn, startMessage(isLoggedIn), {
+              parse_mode: 'Markdown',
+            });
+            return;
+
+          case '/help':
+          case LOGGED_OUT_MENU.HELP:
+          case LOGGED_IN_MENU.HELP:
+            await sendWithMenu(bot, chatId, isLoggedIn, helpMessage(isLoggedIn), {
+              parse_mode: 'Markdown',
+            });
+            return;
 
           case '/login':
           case LOGGED_OUT_MENU.LOGIN: {
@@ -235,6 +252,7 @@ function registerBotHandlers(bot, storageChannelId) {
             await askForInput(bot, chatId, '🔐 Login\nPlease enter your username.');
             return;
           }
+        }
 
           case '/createfolder':
           case LOGGED_IN_MENU.CREATE_FOLDER: {
