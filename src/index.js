@@ -3,6 +3,10 @@ const express = require('express');
 const { connectDatabase } = require('./database');
 const { createBot } = require('./bot');
 
+app.get('/', (req, res) => {
+  res.send('PictureDrive Bot is running! 🚀');
+});
+
 async function bootstrap() {
   const app = express();
   app.use(express.json());
