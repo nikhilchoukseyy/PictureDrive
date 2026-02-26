@@ -207,6 +207,7 @@ function registerBotHandlers(bot, storageChannelId) {
             await askForInput(bot, chatId, '📝 Registration\nPlease enter your username.');
             return;
           }
+        }
 
           case '/login':
           case LOGGED_OUT_MENU.LOGIN: {
@@ -323,6 +324,27 @@ function registerBotHandlers(bot, storageChannelId) {
             clearState(telegramUserId);
             await logoutUser(telegramUserId);
             await sendWithMenu(bot, chatId, false, '✅ Logged out successfully.');
+            return;
+
+          case '/logout':
+          case LOGGED_IN_MENU.LOGOUT:
+            clearState(telegramUserId);
+            await logoutUser(telegramUserId);
+            await sendWithMenu(bot, chatId, false, '✅ Logged out successfully.');
+            return;
+
+          case LOGGED_OUT_MENU.HELP:
+          case LOGGED_IN_MENU.HELP:
+            await sendWithMenu(bot, chatId, isLoggedIn, helpMessage(isLoggedIn), {
+              parse_mode: 'Markdown',
+            });
+            return;
+
+          case '/help':
+            await bot.sendMessage(chatId, helpMessage(), {
+              parse_mode: 'Markdown',
+              reply_markup: mainMenuKeyboard,
+            });
             return;
 
           default:
