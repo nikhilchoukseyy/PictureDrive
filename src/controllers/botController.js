@@ -207,7 +207,7 @@ function registerBotHandlers(bot, storageChannelId) {
             await askForInput(bot, chatId, '📝 Registration\nPlease enter your username.');
             return;
           }
-        }
+        
 
           case '/login':
           case LOGGED_OUT_MENU.LOGIN: {
