@@ -3,9 +3,6 @@ const express = require('express');
 const { connectDatabase } = require('./database');
 const { createBot } = require('./bot');
 
-app.get('/', (req, res) => {
-  res.send('PictureDrive Bot is running! 🚀');
-});
 
 async function bootstrap() {
   const app = express();
@@ -14,6 +11,11 @@ async function bootstrap() {
   app.get('/health', (req, res) => {
     res.status(200).json({ status: 'ok', service: 'PictureDrive bot backend' });
   });
+
+  app.get('/', (req, res) => {
+    res.send('PictureDrive Bot is running! 🚀');
+  });
+
 
   const port = process.env.PORT || 3000;
   const mongoUri = process.env.MONGO_URI;
