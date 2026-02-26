@@ -333,6 +333,13 @@ function registerBotHandlers(bot, storageChannelId) {
             });
             return;
 
+          case '/help':
+            await bot.sendMessage(chatId, helpMessage(), {
+              parse_mode: 'Markdown',
+              reply_markup: mainMenuKeyboard,
+            });
+            return;
+
           default:
             if (command.startsWith('/')) {
               await sendWithMenu(bot, chatId, isLoggedIn, unknownCommandMessage(isLoggedIn));
