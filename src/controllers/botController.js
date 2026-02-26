@@ -7,7 +7,13 @@ const {
 const { createFolder, getUserFolders, openFolder } = require('../services/folderService');
 const { storeUploadedPhoto, ensureFolderOwnership } = require('../services/fileService');
 const { parseCommandText, joinArgs } = require('../utils/commandParser');
-const { dashboardMessage } = require('../utils/messages');
+const {
+  mainMenuKeyboard,
+  startMessage,
+  helpMessage,
+  dashboardMessage,
+  unknownCommandMessage,
+} = require('../utils/messages');
 
 function registerBotHandlers(bot, storageChannelId) {
   bot.on('message', async (msg) => {
@@ -20,15 +26,10 @@ function registerBotHandlers(bot, storageChannelId) {
 
         switch (command) {
           case '/start':
-            await bot.sendMessage(
-              chatId,
-              [
-                'Welcome to PictureDrive Bot 📁',
-                'Use:',
-                '/register username password',
-                '/login username password',
-              ].join('\n')
-            );
+            await bot.sendMessage(chatId, startMessage(), {
+              parse_mode: 'Markdown',
+              reply_markup: mainMenuKeyboard,
+            });
             return;
 
           case '/register': {
@@ -40,7 +41,9 @@ function registerBotHandlers(bot, storageChannelId) {
             const username = args[0];
             const password = args.slice(1).join(' ');
             await registerUser(username, password, telegramUserId);
-            await bot.sendMessage(chatId, '✅ User created successfully. Now login using /login username password');
+            await bot.sendMessage(chatId, '✅ User created successfully. Login using /login username password', {
+              reply_markup: mainMenuKeyboard,
+            });
             return;
           }
 
@@ -54,7 +57,10 @@ function registerBotHandlers(bot, storageChannelId) {
             const password = args.slice(1).join(' ');
             const user = await loginUser(username, password, telegramUserId);
             const folders = await getUserFolders(user._id);
-            await bot.sendMessage(chatId, dashboardMessage(folders));
+            await bot.sendMessage(chatId, dashboardMessage(folders), {
+              parse_mode: 'Markdown',
+              reply_markup: mainMenuKeyboard,
+            });
             return;
           }
 
@@ -72,7 +78,9 @@ function registerBotHandlers(bot, storageChannelId) {
             }
 
             const folder = await createFolder(user._id, folderName);
-            await bot.sendMessage(chatId, `✅ Folder created: ${folder.folderName}`);
+            await bot.sendMessage(chatId, `✅ Folder created: ${folder.folderName}\nNow open it with /open ${folder.folderName}`, {
+              reply_markup: mainMenuKeyboard,
+            });
             return;
           }
 
@@ -90,7 +98,9 @@ function registerBotHandlers(bot, storageChannelId) {
             }
 
             const message = folders.map((folder) => `• ${folder.folderName}`).join('\n');
-            await bot.sendMessage(chatId, `📂 Your folders:\n${message}`);
+            await bot.sendMessage(chatId, `📂 Your folders:\n${message}\n\nTip: Use /open FolderName to view and upload images.`, {
+              reply_markup: mainMenuKeyboard,
+            });
             return;
           }
 
@@ -108,7 +118,9 @@ function registerBotHandlers(bot, storageChannelId) {
             }
 
             const { folder, files } = await openFolder(user._id, folderName);
-            await bot.sendMessage(chatId, `📂 Opened folder: ${folder.folderName}`);
+            await bot.sendMessage(chatId, `📂 Opened folder: ${folder.folderName}\nSend an image now to upload it.`, {
+              reply_markup: mainMenuKeyboard,
+            });
 
             if (!files.length) {
               await bot.sendMessage(chatId, 'This folder is empty. Send an image to upload it.');
@@ -127,16 +139,36 @@ function registerBotHandlers(bot, storageChannelId) {
 
           case '/logout': {
             await logoutUser(telegramUserId);
-            await bot.sendMessage(chatId, '✅ Logged out successfully.');
+            await bot.sendMessage(chatId, '✅ Logged out successfully. Use /login username password to continue.');
             return;
           }
 
+          case '/help':
+            await bot.sendMessage(chatId, helpMessage(), {
+              parse_mode: 'Markdown',
+              reply_markup: mainMenuKeyboard,
+            });
+            return;
+
           default:
+            if (command.startsWith('/')) {
+              await bot.sendMessage(chatId, unknownCommandMessage(), {
+                reply_markup: mainMenuKeyboard,
+              });
+              return;
+            }
             break;
         }
       }
 
-      if (msg.photo && msg.photo.length) {
+      const hasPhoto = Boolean(msg.photo && msg.photo.length);
+      const hasImageDocument = Boolean(
+        msg.document
+          && typeof msg.document.mime_type === 'string'
+          && msg.document.mime_type.startsWith('image/')
+      );
+
+      if (hasPhoto || hasImageDocument) {
         const user = await getLoggedInUser(telegramUserId);
         if (!user) {
           await bot.sendMessage(chatId, 'You must login first using /login username password');
@@ -150,22 +182,36 @@ function registerBotHandlers(bot, storageChannelId) {
 
         await ensureFolderOwnership(user._id, user.currentFolder);
 
-        const largestPhoto = msg.photo[msg.photo.length - 1];
+        const uploadedFileId = hasPhoto
+          ? msg.photo[msg.photo.length - 1].file_id
+          : msg.document.file_id;
         const originalCaption = msg.caption || 'Uploaded Image';
 
-        const channelMessage = await bot.sendPhoto(storageChannelId, largestPhoto.file_id, {
-          caption: `User:${user.username} Folder:${String(user.currentFolder)} Name:${originalCaption}`,
-        });
+        let channelMessage;
+        try {
+          channelMessage = await bot.sendPhoto(storageChannelId, uploadedFileId, {
+            caption: `User:${user.username} Folder:${String(user.currentFolder)} Name:${originalCaption}`,
+          });
+        } catch (channelError) {
+          if (channelError?.response?.body?.description?.includes('chat not found')) {
+            throw new Error(
+              'Storage channel not found. Confirm TELEGRAM_STORAGE_CHANNEL_ID and add bot as a channel admin.'
+            );
+          }
+          throw channelError;
+        }
 
         await storeUploadedPhoto({
           userId: user._id,
           folderId: user.currentFolder,
-          telegramFileId: largestPhoto.file_id,
+          telegramFileId: uploadedFileId,
           channelMessageId: channelMessage.message_id,
           fileName: originalCaption,
         });
 
-        await bot.sendMessage(chatId, '✅ Image uploaded to your cloud folder successfully.');
+        await bot.sendMessage(chatId, '✅ Image uploaded to your cloud folder successfully. Send another image or use /myfolders.', {
+          reply_markup: mainMenuKeyboard,
+        });
       }
     } catch (error) {
       if (error && error.code === 11000) {
