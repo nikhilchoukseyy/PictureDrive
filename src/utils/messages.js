@@ -1,45 +1,73 @@
-const mainMenuKeyboard = {
-  keyboard: [
-    [{ text: '/myfolders' }, { text: '/help' }],
-    [{ text: '/createfolder' }, { text: '/open' }],
-    [{ text: '/logout' }],
-  ],
-  resize_keyboard: true,
-  one_time_keyboard: false,
+const LOGGED_OUT_MENU = {
+  REGISTER: '📝 Register',
+  LOGIN: '🔐 Login',
+  HELP: '❓ Help',
 };
 
-function startMessage() {
+const LOGGED_IN_MENU = {
+  CREATE_FOLDER: '📁 Create Folder',
+  MY_FOLDERS: '📂 My Folders',
+  OPEN_FOLDER: '📤 Open Folder',
+  LOGOUT: '🚪 Logout',
+  HELP: '❓ Help',
+};
+
+function loggedOutKeyboard() {
+  return {
+    keyboard: [
+      [{ text: LOGGED_OUT_MENU.REGISTER }, { text: LOGGED_OUT_MENU.LOGIN }],
+      [{ text: LOGGED_OUT_MENU.HELP }],
+    ],
+    resize_keyboard: true,
+    one_time_keyboard: false,
+  };
+}
+
+function loggedInKeyboard() {
+  return {
+    keyboard: [
+      [{ text: LOGGED_IN_MENU.MY_FOLDERS }, { text: LOGGED_IN_MENU.OPEN_FOLDER }],
+      [{ text: LOGGED_IN_MENU.CREATE_FOLDER }, { text: LOGGED_IN_MENU.LOGOUT }],
+      [{ text: LOGGED_IN_MENU.HELP }],
+    ],
+    resize_keyboard: true,
+    one_time_keyboard: false,
+  };
+}
+
+function startMessage(isLoggedIn = false) {
   return [
     '👋 Welcome to *PictureDrive*',
     '',
     'Store and organize your images in Telegram like a mini cloud drive.',
     '',
-    '*Quick setup*',
-    '1) /register username password',
-    '2) /login username password',
-    '',
-    'Need help anytime? Use /help',
+    isLoggedIn ? 'Use the menu buttons below to manage folders and uploads.' : 'Use the buttons below to register or login. No command typing needed.',
+    'Need help anytime? Tap ❓ Help or use /help.',
   ].join('\n');
 }
 
-function helpMessage() {
-  return [
-    '📘 *PictureDrive Commands*',
+function helpMessage(isLoggedIn = false) {
+  const loggedOutGuide = [
+    '📘 *How to get started*',
     '',
-    '*Account*',
-    '• /register username password',
-    '• /login username password',
-    '• /logout',
+    '1) Tap *📝 Register* and send username/password when asked.',
+    '2) Tap *🔐 Login* and enter your credentials.',
     '',
-    '*Folders*',
-    '• /createfolder FolderName',
-    '• /myfolders',
-    '• /open FolderName',
+    'You can still use commands: /register and /login',
+  ];
+
+  const loggedInGuide = [
+    '📘 *PictureDrive Actions*',
     '',
-    '*Uploads*',
-    '• Open a folder with /open FolderName',
-    '• Send a photo OR image file to upload',
-  ].join('\n');
+    '• 📁 Create Folder → make a new folder',
+    '• 📂 My Folders → list all your folders',
+    '• 📤 Open Folder → choose folder for viewing/uploading',
+    '• 🚪 Logout → end your session',
+    '',
+    'To upload: open a folder first, then send a photo or image file.',
+  ];
+
+  return (isLoggedIn ? loggedInGuide : loggedOutGuide).join('\n');
 }
 
 function dashboardMessage(folders = []) {
@@ -48,9 +76,7 @@ function dashboardMessage(folders = []) {
       '✅ *Login successful*',
       '',
       'You have no folders yet.',
-      'Create your first one with: /createfolder MyFolder',
-      '',
-      'Then open it using: /open MyFolder and send an image.',
+      'Tap *📁 Create Folder* to make your first one.',
     ].join('\n');
   }
 
@@ -62,16 +88,21 @@ function dashboardMessage(folders = []) {
     '📂 *Your folders*',
     folderList,
     '',
-    'Use /open FolderName to view or upload images.',
+    'Tap *📤 Open Folder* to choose one and upload images.',
   ].join('\n');
 }
 
-function unknownCommandMessage() {
-  return '🤔 I did not recognize that command. Use /help to see all available commands.';
+function unknownCommandMessage(isLoggedIn = false) {
+  return isLoggedIn
+    ? '🤔 I did not recognize that action. Please use the menu buttons below or /help.'
+    : '🤔 Please use 📝 Register or 🔐 Login buttons to continue, or /help for details.';
 }
 
 module.exports = {
-  mainMenuKeyboard,
+  LOGGED_OUT_MENU,
+  LOGGED_IN_MENU,
+  loggedOutKeyboard,
+  loggedInKeyboard,
   startMessage,
   helpMessage,
   dashboardMessage,
