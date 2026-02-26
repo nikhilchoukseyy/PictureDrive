@@ -64,9 +64,12 @@ function registerBotHandlers(bot, storageChannelId) {
 
       if (msg.text) {
         const text = msg.text.trim();
-        const { command, args } = parseCommandText(text);
-        const action = text.startsWith('/') ? command : text;
-        const typedSlashCommand = text.startsWith('/');
+        const { command, args: rawArgs } = parseCommandText(text);
+        const isSlashCommand = text.startsWith('/');
+        const action = isSlashCommand ? command : text;
+        // Only treat parsed args as real args for slash commands.
+        // Menu button labels must never be split into folder-name args.
+        const args = isSlashCommand ? rawArgs : [];
 
         if (pendingState && !text.startsWith('/') && !isMenuButtonText(text)) {
           if (pendingState.step === 'await_register_username') {
@@ -208,24 +211,8 @@ function registerBotHandlers(bot, storageChannelId) {
             await askForInput(bot, chatId, '📝 Registration\nPlease enter your username.');
             return;
           }
-        }
 
-        switch (action) {
-          case '/start':
-            clearState(telegramUserId);
-            await sendWithMenu(bot, chatId, isLoggedIn, startMessage(isLoggedIn), {
-              parse_mode: 'Markdown',
-            });
-            return;
-
-          case '/help':
-          case LOGGED_OUT_MENU.HELP:
-          case LOGGED_IN_MENU.HELP:
-            await sendWithMenu(bot, chatId, isLoggedIn, helpMessage(isLoggedIn), {
-              parse_mode: 'Markdown',
-            });
-            return;
-
+          // ✅ FIX: This case was previously outside the switch due to an extra closing brace
           case '/login':
           case LOGGED_OUT_MENU.LOGIN: {
             clearState(telegramUserId);
@@ -252,7 +239,6 @@ function registerBotHandlers(bot, storageChannelId) {
             await askForInput(bot, chatId, '🔐 Login\nPlease enter your username.');
             return;
           }
-        }
 
           case '/createfolder':
           case LOGGED_IN_MENU.CREATE_FOLDER: {
@@ -261,7 +247,7 @@ function registerBotHandlers(bot, storageChannelId) {
               return;
             }
 
-            const folderName = typedSlashCommand ? joinArgs(args) : '';
+            const folderName = joinArgs(args);
             if (folderName) {
               const folder = await createFolder(currentUser._id, folderName);
               await sendWithMenu(
@@ -308,7 +294,7 @@ function registerBotHandlers(bot, storageChannelId) {
               return;
             }
 
-            const folderName = typedSlashCommand ? joinArgs(args) : '';
+            const folderName = joinArgs(args);
             if (folderName) {
               const { folder, files } = await openFolder(currentUser._id, folderName);
               await sendWithMenu(

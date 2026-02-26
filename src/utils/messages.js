@@ -43,6 +43,7 @@ function startMessage(isLoggedIn = false) {
     '',
     isLoggedIn ? 'Use the menu buttons below to manage folders and uploads.' : 'Use the buttons below to register or login. No command typing needed.',
     'Need help anytime? Tap ❓ Help or use /help.',
+    'Use /start command when stuck'
   ].join('\n');
 }
 
