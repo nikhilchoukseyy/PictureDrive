@@ -66,6 +66,7 @@ function registerBotHandlers(bot, storageChannelId) {
         const text = msg.text.trim();
         const { command, args } = parseCommandText(text);
         const action = text.startsWith('/') ? command : text;
+        const typedSlashCommand = text.startsWith('/');
 
         if (pendingState && !text.startsWith('/') && !isMenuButtonText(text)) {
           if (pendingState.step === 'await_register_username') {
@@ -209,6 +210,22 @@ function registerBotHandlers(bot, storageChannelId) {
           }
         }
 
+        switch (action) {
+          case '/start':
+            clearState(telegramUserId);
+            await sendWithMenu(bot, chatId, isLoggedIn, startMessage(isLoggedIn), {
+              parse_mode: 'Markdown',
+            });
+            return;
+
+          case '/help':
+          case LOGGED_OUT_MENU.HELP:
+          case LOGGED_IN_MENU.HELP:
+            await sendWithMenu(bot, chatId, isLoggedIn, helpMessage(isLoggedIn), {
+              parse_mode: 'Markdown',
+            });
+            return;
+
           case '/login':
           case LOGGED_OUT_MENU.LOGIN: {
             clearState(telegramUserId);
@@ -235,6 +252,29 @@ function registerBotHandlers(bot, storageChannelId) {
             await askForInput(bot, chatId, '🔐 Login\nPlease enter your username.');
             return;
           }
+        }
+
+          case '/login':
+          case LOGGED_OUT_MENU.LOGIN: {
+            clearState(telegramUserId);
+            if (isLoggedIn) {
+              const folders = await getUserFolders(currentUser._id);
+              await sendWithMenu(bot, chatId, true, dashboardMessage(folders), {
+                parse_mode: 'Markdown',
+              });
+              return;
+            }
+
+            if (args.length >= 2) {
+              const username = args[0];
+              const password = args.slice(1).join(' ');
+              const user = await loginUser(username, password, telegramUserId);
+              const folders = await getUserFolders(user._id);
+              await sendWithMenu(bot, chatId, true, dashboardMessage(folders), {
+                parse_mode: 'Markdown',
+              });
+              return;
+            }
 
           case '/createfolder':
           case LOGGED_IN_MENU.CREATE_FOLDER: {
@@ -243,7 +283,7 @@ function registerBotHandlers(bot, storageChannelId) {
               return;
             }
 
-            const folderName = joinArgs(args);
+            const folderName = typedSlashCommand ? joinArgs(args) : '';
             if (folderName) {
               const folder = await createFolder(currentUser._id, folderName);
               await sendWithMenu(
@@ -290,7 +330,7 @@ function registerBotHandlers(bot, storageChannelId) {
               return;
             }
 
-            const folderName = joinArgs(args);
+            const folderName = typedSlashCommand ? joinArgs(args) : '';
             if (folderName) {
               const { folder, files } = await openFolder(currentUser._id, folderName);
               await sendWithMenu(
@@ -324,27 +364,6 @@ function registerBotHandlers(bot, storageChannelId) {
             clearState(telegramUserId);
             await logoutUser(telegramUserId);
             await sendWithMenu(bot, chatId, false, '✅ Logged out successfully.');
-            return;
-
-          case '/logout':
-          case LOGGED_IN_MENU.LOGOUT:
-            clearState(telegramUserId);
-            await logoutUser(telegramUserId);
-            await sendWithMenu(bot, chatId, false, '✅ Logged out successfully.');
-            return;
-
-          case LOGGED_OUT_MENU.HELP:
-          case LOGGED_IN_MENU.HELP:
-            await sendWithMenu(bot, chatId, isLoggedIn, helpMessage(isLoggedIn), {
-              parse_mode: 'Markdown',
-            });
-            return;
-
-          case '/help':
-            await bot.sendMessage(chatId, helpMessage(), {
-              parse_mode: 'Markdown',
-              reply_markup: mainMenuKeyboard,
-            });
             return;
 
           default:
