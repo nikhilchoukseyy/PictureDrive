@@ -32,22 +32,23 @@ function getState(telegramUserId) {
   return inputState.get(String(telegramUserId));
 }
 
-function parseCredentialsInput(text = '') {
-  const values = text.trim().split(/\s+/);
-  if (values.length < 2) {
-    return null;
-  }
-
-  return {
-    username: values[0],
-    password: values.slice(1).join(' '),
-  };
+function isMenuButtonText(text = '') {
+  return Object.values(LOGGED_OUT_MENU).includes(text) || Object.values(LOGGED_IN_MENU).includes(text);
 }
 
 async function sendWithMenu(bot, chatId, isLoggedIn, message, options = {}) {
   await bot.sendMessage(chatId, message, {
     ...options,
     reply_markup: isLoggedIn ? loggedInKeyboard() : loggedOutKeyboard(),
+  });
+}
+
+async function askForInput(bot, chatId, message) {
+  await bot.sendMessage(chatId, message, {
+    reply_markup: {
+      force_reply: true,
+      selective: true,
+    },
   });
 }
 
@@ -64,44 +65,55 @@ function registerBotHandlers(bot, storageChannelId) {
       if (msg.text) {
         const text = msg.text.trim();
         const { command, args } = parseCommandText(text);
+        const action = text.startsWith('/') ? command : text;
 
-        if (pendingState && !command.startsWith('/')) {
-          if (pendingState === 'await_register_credentials') {
-            const credentials = parseCredentialsInput(text);
-            if (!credentials) {
-              await sendWithMenu(
-                bot,
-                chatId,
-                false,
-                'Please send both values in one message:\nusername password'
-              );
+        if (pendingState && !text.startsWith('/') && !isMenuButtonText(text)) {
+          if (pendingState.step === 'await_register_username') {
+            if (!text) {
+              await askForInput(bot, chatId, 'Please enter a valid username.');
               return;
             }
 
-            await registerUser(credentials.username, credentials.password, telegramUserId);
+            setState(telegramUserId, { step: 'await_register_password', username: text });
+            await askForInput(bot, chatId, '🔒 Great. Now enter your password.');
+            return;
+          }
+
+          if (pendingState.step === 'await_register_password') {
+            if (!text) {
+              await askForInput(bot, chatId, 'Please enter a valid password.');
+              return;
+            }
+
+            await registerUser(pendingState.username, text, telegramUserId);
             clearState(telegramUserId);
             await sendWithMenu(
               bot,
               chatId,
               false,
-              '✅ Registration complete. Now tap 🔐 Login and send username password.'
+              '✅ Registration complete. Tap 🔐 Login to continue.'
             );
             return;
           }
 
-          if (pendingState === 'await_login_credentials') {
-            const credentials = parseCredentialsInput(text);
-            if (!credentials) {
-              await sendWithMenu(
-                bot,
-                chatId,
-                false,
-                'Please send both values in one message:\nusername password'
-              );
+          if (pendingState.step === 'await_login_username') {
+            if (!text) {
+              await askForInput(bot, chatId, 'Please enter a valid username.');
               return;
             }
 
-            const user = await loginUser(credentials.username, credentials.password, telegramUserId);
+            setState(telegramUserId, { step: 'await_login_password', username: text });
+            await askForInput(bot, chatId, '🔒 Now enter your password.');
+            return;
+          }
+
+          if (pendingState.step === 'await_login_password') {
+            if (!text) {
+              await askForInput(bot, chatId, 'Please enter a valid password.');
+              return;
+            }
+
+            const user = await loginUser(pendingState.username, text, telegramUserId);
             const folders = await getUserFolders(user._id);
             clearState(telegramUserId);
             await sendWithMenu(bot, chatId, true, dashboardMessage(folders), {
@@ -110,7 +122,7 @@ function registerBotHandlers(bot, storageChannelId) {
             return;
           }
 
-          if (pendingState === 'await_create_folder_name') {
+          if (pendingState.step === 'await_create_folder_name') {
             if (!isLoggedIn) {
               clearState(telegramUserId);
               await sendWithMenu(bot, chatId, false, 'Please login first using 🔐 Login.');
@@ -123,12 +135,12 @@ function registerBotHandlers(bot, storageChannelId) {
               bot,
               chatId,
               true,
-              `✅ Folder created: ${folder.folderName}\nTap 📤 Open Folder and send folder name to open it.`
+              `✅ Folder created: ${folder.folderName}\nTap 📤 Open Folder to choose it.`
             );
             return;
           }
 
-          if (pendingState === 'await_open_folder_name') {
+          if (pendingState.step === 'await_open_folder_name') {
             if (!isLoggedIn) {
               clearState(telegramUserId);
               await sendWithMenu(bot, chatId, false, 'Please login first using 🔐 Login.');
@@ -159,7 +171,7 @@ function registerBotHandlers(bot, storageChannelId) {
           }
         }
 
-        switch (command) {
+        switch (action) {
           case '/start':
             clearState(telegramUserId);
             await sendWithMenu(bot, chatId, isLoggedIn, startMessage(isLoggedIn), {
@@ -168,6 +180,8 @@ function registerBotHandlers(bot, storageChannelId) {
             return;
 
           case '/help':
+          case LOGGED_OUT_MENU.HELP:
+          case LOGGED_IN_MENU.HELP:
             await sendWithMenu(bot, chatId, isLoggedIn, helpMessage(isLoggedIn), {
               parse_mode: 'Markdown',
             });
@@ -185,24 +199,15 @@ function registerBotHandlers(bot, storageChannelId) {
               const username = args[0];
               const password = args.slice(1).join(' ');
               await registerUser(username, password, telegramUserId);
-              await sendWithMenu(
-                bot,
-                chatId,
-                false,
-                '✅ Registration complete. Now tap 🔐 Login and send username password.'
-              );
+              await sendWithMenu(bot, chatId, false, '✅ Registration complete. Tap 🔐 Login to continue.');
               return;
             }
 
-            setState(telegramUserId, 'await_register_credentials');
-            await sendWithMenu(
-              bot,
-              chatId,
-              false,
-              '📝 Registration\nPlease send:\nusername password\n\nExample: john mySecret123'
-            );
+            setState(telegramUserId, { step: 'await_register_username' });
+            await askForInput(bot, chatId, '📝 Registration\nPlease enter your username.');
             return;
           }
+        }
 
           case '/login':
           case LOGGED_OUT_MENU.LOGIN: {
@@ -226,13 +231,8 @@ function registerBotHandlers(bot, storageChannelId) {
               return;
             }
 
-            setState(telegramUserId, 'await_login_credentials');
-            await sendWithMenu(
-              bot,
-              chatId,
-              false,
-              '🔐 Login\nPlease send:\nusername password\n\nExample: john mySecret123'
-            );
+            setState(telegramUserId, { step: 'await_login_username' });
+            await askForInput(bot, chatId, '🔐 Login\nPlease enter your username.');
             return;
           }
 
@@ -250,13 +250,13 @@ function registerBotHandlers(bot, storageChannelId) {
                 bot,
                 chatId,
                 true,
-                `✅ Folder created: ${folder.folderName}\nTap 📤 Open Folder and send folder name to open it.`
+                `✅ Folder created: ${folder.folderName}\nTap 📤 Open Folder to choose it.`
               );
               return;
             }
 
-            setState(telegramUserId, 'await_create_folder_name');
-            await sendWithMenu(bot, chatId, true, '📁 Send the folder name you want to create.');
+            setState(telegramUserId, { step: 'await_create_folder_name' });
+            await askForInput(bot, chatId, '📁 Enter folder name.');
             return;
           }
 
@@ -314,10 +314,17 @@ function registerBotHandlers(bot, storageChannelId) {
               return;
             }
 
-            setState(telegramUserId, 'await_open_folder_name');
-            await sendWithMenu(bot, chatId, true, '📤 Send the folder name you want to open.');
+            setState(telegramUserId, { step: 'await_open_folder_name' });
+            await askForInput(bot, chatId, '📤 Enter folder name to open.');
             return;
           }
+
+          case '/logout':
+          case LOGGED_IN_MENU.LOGOUT:
+            clearState(telegramUserId);
+            await logoutUser(telegramUserId);
+            await sendWithMenu(bot, chatId, false, '✅ Logged out successfully.');
+            return;
 
           case '/logout':
           case LOGGED_IN_MENU.LOGOUT:
@@ -341,7 +348,7 @@ function registerBotHandlers(bot, storageChannelId) {
             return;
 
           default:
-            if (command.startsWith('/')) {
+            if (text.startsWith('/')) {
               await sendWithMenu(bot, chatId, isLoggedIn, unknownCommandMessage(isLoggedIn));
               return;
             }

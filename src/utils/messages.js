@@ -50,8 +50,8 @@ function helpMessage(isLoggedIn = false) {
   const loggedOutGuide = [
     '📘 *How to get started*',
     '',
-    '1) Tap *📝 Register* and send username/password when asked.',
-    '2) Tap *🔐 Login* and enter your credentials.',
+    '1) Tap *📝 Register* then enter username and password step by step.',
+    '2) Tap *🔐 Login* then enter username and password step by step.',
     '',
     'You can still use commands: /register and /login',
   ];
