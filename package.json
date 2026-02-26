@@ -4,7 +4,7 @@
   "description": "Telegram cloud storage bot backend using Node.js, Express, MongoDB, and Mongoose",
   "main": "src/index.js",
   "scripts": {
-    "start": "npm run check && node src/index.js",
+    "start": "node src/index.js",
     "dev": "node --watch src/index.js",
     "check": "node --check src/index.js && node --check src/bot.js && node --check src/controllers/botController.js && node --check src/utils/messages.js"
   },
