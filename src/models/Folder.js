@@ -19,6 +19,4 @@ const folderSchema = new mongoose.Schema(
   }
 );
 
-folderSchema.index({ userId: 1, folderName: 1 }, { unique: true });
-
 module.exports = mongoose.model('Folder', folderSchema);
